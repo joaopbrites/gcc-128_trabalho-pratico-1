@@ -1,0 +1,17 @@
+.venv/
+__pycache__/
+.ipynb_checkpoints/
+*.pyc
+*.pyo
+*.pyd
+*.log
+.pytest_cache/
+.mypy_cache/
+.DS_Store
+Thumbs.db
+
+# Jupyter
+*.nbconvert.ipynb
+
+# VS Code
+.vscode/
