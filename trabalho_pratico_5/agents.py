@@ -14,8 +14,8 @@ from langgraph.graph import END, StateGraph
 from pydantic import BaseModel, Field
 
 from game import BLACK, WHITE, Move, Othello
+from groq_models import MODEL_DEFAULT
 
-MODEL_DEFAULT = "openai/gpt-oss-20b"
 POSITION_WEIGHTS = (
     (100, -25, 10, 5, 5, 10, -25, 100),
     (-25, -45, -5, -5, -5, -5, -45, -25),
@@ -155,6 +155,57 @@ class GroqAgent:
         self.calls = 0
         self.llm_latency_seconds = 0.0
 
+    def _request_move(
+        self,
+        board: list[list[int]],
+        legal_moves: list[Move],
+        player: int,
+        recent_history: list[dict[str, Any]],
+    ) -> MoveDecision:
+        self.calls += 1
+        started = time.perf_counter()
+        try:
+            response = self.structured_llm.invoke([
+                SystemMessage(
+                    content=(
+                        "Você é um agente de Othello. Escolha exatamente uma jogada "
+                        "da lista legal. Considere cantos, mobilidade e posições "
+                        "estratégicas; não invente coordenadas. Responda com row, "
+                        "col e uma justificativa curta em português."
+                    )
+                ),
+                HumanMessage(content=json.dumps({
+                    "jogador": "preto" if player == BLACK else "branco",
+                    "tabuleiro": board,
+                    "jogadas_validas": legal_moves,
+                    "historico_recente": recent_history,
+                }, ensure_ascii=False)),
+            ])
+        finally:
+            self.llm_latency_seconds += time.perf_counter() - started
+
+        if [response.row, response.col] not in legal_moves:
+            raise ValueError(
+                f"Groq sugeriu ({response.row}, {response.col}), que não é "
+                "uma jogada legal."
+            )
+        return response
+
+    def choose_move(self, game: Othello) -> MoveDecision:
+        """Obtém e valida uma jogada sem alterar a partida."""
+        tools = create_game_tools(game)
+        board = json.loads(tools["get_board_state"].invoke({}))
+        legal_moves = json.loads(tools["get_valid_moves"].invoke({}))
+        status = json.loads(tools["get_game_status"].invoke({}))
+        if not legal_moves:
+            raise ValueError("O jogo não possui jogadas válidas para o turno.")
+        return self._request_move(
+            board,
+            legal_moves,
+            status["current_player"],
+            status["history"][-8:],
+        )
+
     def play_turn(self, game: Othello) -> MoveDecision:
         """Executa observar → analisar → validar → agir em um grafo LangGraph."""
         tools = create_game_tools(game)
@@ -175,29 +226,12 @@ class GroqAgent:
 
         def decide(state: DecisionState) -> dict[str, Any]:
             observation = state["observation"]
-            player = observation["status"]["current_player"]
-            recent_history = observation["status"]["history"][-8:]
-            self.calls += 1
-            started = time.perf_counter()
-            try:
-                response = self.structured_llm.invoke([
-                    SystemMessage(
-                        content=(
-                            "Você é um agente de Othello. Escolha exatamente uma jogada "
-                            "da lista legal. Considere cantos, mobilidade e posições "
-                            "estratégicas; não invente coordenadas. Responda com row, "
-                            "col e uma justificativa curta em português."
-                        )
-                    ),
-                    HumanMessage(content=json.dumps({
-                        "jogador": "preto" if player == BLACK else "branco",
-                        "tabuleiro": observation["board"],
-                        "jogadas_validas": observation["valid_moves"],
-                        "historico_recente": recent_history,
-                    }, ensure_ascii=False)),
-                ])
-            finally:
-                self.llm_latency_seconds += time.perf_counter() - started
+            response = self._request_move(
+                observation["board"],
+                observation["valid_moves"],
+                observation["status"]["current_player"],
+                observation["status"]["history"][-8:],
+            )
             return {"decision": response}
 
         def validate(state: DecisionState) -> dict[str, Any]:

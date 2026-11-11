@@ -2,4 +2,5 @@ langchain-core
 langchain-groq
 langgraph
 pydantic
+groq
 streamlit

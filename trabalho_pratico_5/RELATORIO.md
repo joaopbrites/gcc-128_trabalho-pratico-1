@@ -30,6 +30,20 @@ verifica a legalidade da escolha antes de executar a jogada; o motor recusa
 movimentos ilegais independentemente da estratégia. O histórico recente é
 incluído no contexto do agente.
 
+Antes de iniciar uma jogada Groq, a interface consulta o endpoint de modelos
+com a chave fornecida e limita o seletor aos modelos online que também estão
+documentados com suporte a saída estruturada. Há também um teste real, sem
+alterar o tabuleiro, que envia uma requisição estruturada para cada modelo e
+só aprova os que respondem com uma jogada legal. Cada teste consome uma
+chamada à API. Alterar a chave invalida a lista e os resultados anteriores.
+Erros de autenticação, permissão, cota e rede são apresentados com orientação
+específica, sem exibir ou registrar a chave.
+
+No modo Humano × Groq, a resposta do agente é solicitada automaticamente após
+cada movimento humano. A interface informa que o Groq está analisando a
+posição e mostra o resultado da jogada; em caso de falha, não repete a chamada
+automaticamente e oferece uma ação de nova tentativa.
+
 ## Experimentos
 
 O script `experiments.py` compara o agente heurístico com um agente aleatório,

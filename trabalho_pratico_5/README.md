@@ -21,14 +21,32 @@ streamlit run app.py
 ```
 
 No modo **Humano × Groq**, pretas são controladas pelo humano e brancas pelo
-LLM. A chave pode ser informada no campo protegido da barra lateral ou pela
-variável `GROQ_API_KEY`. Ela não é gravada nos arquivos do projeto. O modelo
-pode ser alterado na interface ou pela variável `GROQ_MODEL`; o padrão é
-`openai/gpt-oss-20b`.
+LLM. Depois de validar a chave e escolher o modelo, cada jogada humana dispara
+automaticamente a jogada do Groq; a interface mostra o estado de análise e a
+resposta. Se a chamada falhar (por chave, rede ou limite), a aplicação mostra
+o motivo e oferece uma nova tentativa, sem repetir chamadas em segundo plano.
+Informe a chave no campo protegido da barra lateral e clique em
+**Validar chave e buscar modelos**. A lista é obtida ao vivo da API, filtrada
+para modelos atualmente disponíveis que suportam saída estruturada, usada
+para validar a jogada do agente. A chave não é gravada nos arquivos do
+projeto. Se a chave for alterada, a lista anterior é descartada e precisa ser
+consultada novamente. Em seguida, use **Testar compatibilidade dos modelos**:
+o programa faz uma chamada real, sem alterar a partida, para cada candidato e
+só permite jogar com os modelos que retornaram uma jogada legal no formato
+esperado. O teste pode consumir até uma chamada por candidato; erros mostram o
+status HTTP e o modelo que falhou. A API oficial lista modelos em
+[Groq Models](https://console.groq.com/docs/models); o suporte a saída
+estruturada é documentado em [Structured Outputs](https://console.groq.com/docs/structured-outputs).
 
 O modo **Groq × Heurístico** permite observar duas estratégias jogando uma
 jogada por vez. **Heurístico × Heurístico** funciona sem chave nem acesso à
 rede.
+
+O tabuleiro acompanha automaticamente o tema claro/escuro do Streamlit. Se a
+detecção automática não corresponder ao tema exibido, a opção **Tema do
+tabuleiro** na barra lateral permite selecionar claro ou escuro. As duas
+paletas usam superfícies discretas, alternância sutil entre casas, peças
+delimitadas e marcação âmbar para jogadas legais.
 
 ## Testes e experimentos
 
@@ -53,7 +71,8 @@ latência pode variar com o serviço e com os limites da conta.
 - `app.py`: interface para Humano × Groq, Groq × Heurístico e
   Heurístico × Heurístico.
 - `experiments.py`: partidas automatizadas e métricas locais.
-- `test_game.py`: testes das regras e estados de jogo.
+- `test_game.py` e `test_groq_models.py`: testes das regras, fluxo do agente e
+  catálogo de modelos.
 
 O agente heurístico pondera cantos, casas adjacentes a cantos, demais posições,
 material e mobilidade. O agente Groq recebe o estado observado pelas tools e

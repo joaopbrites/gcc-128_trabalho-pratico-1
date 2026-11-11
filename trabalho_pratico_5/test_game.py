@@ -91,6 +91,20 @@ class OthelloTests(unittest.TestCase):
         self.assertEqual(agent.calls, 1)
         self.assertGreaterEqual(agent.llm_latency_seconds, 0)
 
+    def test_agent_compatibility_check_does_not_change_game_state(self):
+        game = Othello()
+        original_board = game.get_board_state()
+        original_history = list(game.history)
+        model = FakeChatModel(MoveDecision(row=2, col=3, reason="Jogada legal."))
+        agent = GroqAgent(llm=model)
+
+        decision = agent.choose_move(game)
+
+        self.assertEqual((decision.row, decision.col), (2, 3))
+        self.assertEqual(game.get_board_state(), original_board)
+        self.assertEqual(game.history, original_history)
+        self.assertEqual(agent.calls, 1)
+
     def test_langgraph_agent_rejects_illegal_decision_without_mutation(self):
         game = Othello()
         original = game.get_board_state()
